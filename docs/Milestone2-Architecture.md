@@ -1,4 +1,4 @@
-![McMaster University][image1]      ![http://wbooth.mcmaster.ca/images/booth\_head.png][image2]
+![McMaster University](assets/mcmaster-logo.png)
 
 # 
 
