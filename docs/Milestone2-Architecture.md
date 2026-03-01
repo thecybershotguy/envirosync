@@ -70,7 +70,7 @@ flowchart LR
 
     Sensor -->|HTTP/JSON| Backend
     Backend -->|HTTPS| WeatherApi
-    Backend -->|TCP/IP (PostgreSQL)| Db
+    Backend -->|TCP-IP PostgreSQL| Db
 ```
 
 The deployment setup puts the M5StickC at the edge, where it reads local environmental data and sends it by HTTP to a Python backend on a local server. The backend is the main integration part. It receives telemetry, calls the OpenWeatherMap REST API by HTTPS to get weather context, and writes the final combined records to a managed Supabase PostgreSQL database over the PostgreSQL protocol on TCP/IP. This design keeps hardware work at the edge, system logic on the local server, and long-term data storage in the cloud.
