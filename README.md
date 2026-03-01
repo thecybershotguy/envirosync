@@ -1,5 +1,8 @@
+![McMaster University](docs/assets/mcmaster-logo.png)
+
 # EnviroSync
-**Student:** Karan Chauhan (400606872)
+
+**Student:** Karan Chauhan (400606872)  
 **Course:** SFWRTECH 4SA3 - Software Architecture
 
 ## Project Purpose
