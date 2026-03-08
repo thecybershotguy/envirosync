@@ -12,16 +12,20 @@ This diagram shows how I organized the Python modules into clear packages. I spl
 
 ```mermaid
 flowchart TB
-    Controller["Controller<br/>main app flow and orchestration"]
-    Adapters["Adapters<br/>OpenWeatherMap wrapper"]
+    Controller["Controller<br/>Main orchestration logic"]
+    Adapters["Adapters<br/>Weather API wrapper"]
     Patterns["Patterns<br/>Circuit Breaker"]
-    Domain["Domain<br/>TelemetryReading / WeatherReading / Alert"]
+    Factories["Factories<br/>Alert creation rules"]
+    Domain["Domain<br/>Telemetry / Weather / Alert models"]
+    Storage["Storage<br/>Persistence layer"]
 
     Controller --> Adapters
     Controller --> Patterns
+    Controller --> Factories
     Controller --> Domain
+    Controller --> Storage
     Adapters --> Domain
-    Patterns --> Adapters
+    Factories --> Domain
 ```
 
 # 6. Logical Viewpoint
@@ -61,7 +65,7 @@ sequenceDiagram
 
     Device->>Backend: HTTP POST /telemetry (JSON temp/humidity/pressure)
     Backend->>Backend: Validate payload and timestamp
-    Backend->>OWM: HTTPS GET /data/2.5/weather?lat=51.0447&lon=-114.0719&appid=API_KEY&units=metric
+    Backend->>OWM: HTTPS GET /data/2.5/weather?lat=43.2609&lon=-79.9192&appid=API_KEY&units=metric
     alt Weather API responds in time
         OWM-->>Backend: HTTP 200 JSON weather payload
     else Timeout or error
