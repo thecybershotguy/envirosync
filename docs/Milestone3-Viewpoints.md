@@ -50,7 +50,7 @@ flowchart TD
 
 According to the course lectures, the Process Viewpoint focuses on runtime behavior and communication between processes during execution.
 
-This sequence diagram shows runtime communication for one telemetry reading. The M5StickC device sends data to the Python backend over HTTP. The backend then calls OpenWeatherMap over HTTPS and writes the combined record to PostgreSQL over TCP. To handle runtime stability, the backend uses request timeout values and can process many readings concurrently with independent request cycles.
+This process viewpoint describes the runtime execution path that is already visible in this project. The Python service first loads configuration from the environment, then handles one telemetry-processing cycle by calling the OpenWeatherMap API and finally storing the result in PostgreSQL. The main runtime concern is coordination between three active participants: the local backend process, the external weather service, and the database connection. The backend also includes explicit failure branches for missing configuration, API timeout or parsing errors, and database exceptions so the process can fail safely and report the reason.
 
 ```mermaid
 sequenceDiagram
@@ -59,16 +59,25 @@ sequenceDiagram
     participant OWM as OpenWeatherMap API
     participant DB as PostgreSQL Database
 
-    Device->>Backend: HTTP POST /telemetry (JSON temp/humidity/pressure)
-    Backend->>Backend: Validate payload and timestamp
-    Backend->>OWM: HTTPS GET /data/2.5/weather?lat=51.0447&lon=-114.0719&appid=API_KEY&units=metric
-    alt Weather API responds in time
-        OWM-->>Backend: HTTP 200 JSON weather payload
-    else Timeout or error
-        OWM--xBackend: Timeout / 5xx / network error
-        Backend->>Backend: Circuit breaker fallback (degraded mode)
+    Device->>Backend: Submit telemetry reading
+    Backend->>Backend: Load .env values and validate required settings
+    alt Configuration is valid
+        Backend->>OWM: HTTPS request for current weather at fixed coordinates
+        alt Weather response is valid
+            OWM-->>Backend: 200 OK + JSON payload
+            Backend->>Backend: Parse weather fields and combine with telemetry
+            Backend->>DB: Open connection and INSERT record
+            DB-->>Backend: Commit successful
+            Backend-->>Device: Processing accepted
+        else Timeout, network error, or invalid payload
+            OWM--xBackend: Timeout / request error / malformed data
+            Backend->>Backend: Mark weather fetch failure and log error
+            Backend-->>Device: Processing failed or degraded
+        end
+    else Missing API key or database URL
+        Backend->>Backend: Stop processing and print configuration error
+        Backend-->>Device: Startup/runtime error
     end
-    Backend->>DB: TCP SQL INSERT telemetry + weather/fallback status
-    DB-->>Backend: INSERT OK
-    Backend-->>Device: HTTP 202 Accepted
 ```
+
+This sequence is consistent with the current code. In `src/api_test.py`, the process loads `OPENWEATHER_API_KEY`, sends a timed HTTPS request to OpenWeatherMap, checks the HTTP status, and parses the returned JSON before continuing. In `src/db_test.py`, the process loads `DATABASE_URL`, opens a PostgreSQL connection, performs SQL statements, commits successful writes, and rolls back when an exception happens. Together these two runtime paths show the core process behavior of EnviroSync: external service coordination, database persistence, and defensive handling of operational faults.
