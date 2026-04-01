@@ -1,0 +1,68 @@
+esphome:
+  name: m5stickc-envirosync
+  friendly_name: EnviroSync M5StickC
+
+esp32:
+  board: m5stick-c
+  framework:
+    type: arduino
+
+logger:
+
+wifi:
+  ssid: "YOUR_WIFI_SSID"
+  password: "YOUR_WIFI_PASSWORD"
+
+  ap:
+    ssid: "EnviroSync-Fallback"
+    password: "changeme1234"
+
+captive_portal:
+
+api:
+
+ota:
+  - platform: esphome
+
+http_request:
+  verify_ssl: false
+  timeout: 10s
+
+i2c:
+  sda: 32
+  scl: 33
+  scan: true
+
+sensor:
+  - platform: sht3xd
+    temperature:
+      id: env_temperature
+      name: "ENV III Temperature"
+    humidity:
+      id: env_humidity
+      name: "ENV III Humidity"
+    address: 0x44
+    update_interval: 60s
+
+  - platform: qmp6988
+    pressure:
+      id: env_pressure
+      name: "ENV III Pressure"
+    address: 0x70
+    update_interval: 60s
+
+interval:
+  - interval: 60s
+    then:
+      - http_request.post:
+          url: "http://<PYTHON_SERVER_IP>:8000/telemetry"
+          headers:
+            Content-Type: application/json
+          json:
+            temperature: !lambda |-
+              return id(env_temperature).state;
+            humidity: !lambda |-
+              return id(env_humidity).state;
+            pressure: !lambda |-
+              return id(env_pressure).state;
+            device_id: "m5stickc-plus2"
