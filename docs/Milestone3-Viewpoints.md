@@ -12,16 +12,20 @@ This diagram shows how I organized the Python modules into clear packages. I spl
 
 ```mermaid
 flowchart TB
-    Controller["Controller<br/>main app flow and orchestration"]
-    Adapters["Adapters<br/>OpenWeatherMap wrapper"]
+    Controller["Controller<br/>Main orchestration logic"]
+    Adapters["Adapters<br/>Weather API wrapper"]
     Patterns["Patterns<br/>Circuit Breaker"]
-    Domain["Domain<br/>TelemetryReading / WeatherReading / Alert"]
+    Factories["Factories<br/>Alert creation rules"]
+    Domain["Domain<br/>Telemetry / Weather / Alert models"]
+    Storage["Storage<br/>Persistence layer"]
 
     Controller --> Adapters
     Controller --> Patterns
+    Controller --> Factories
     Controller --> Domain
+    Controller --> Storage
     Adapters --> Domain
-    Patterns --> Adapters
+    Factories --> Domain
 ```
 
 # 6. Logical Viewpoint
@@ -59,25 +63,16 @@ sequenceDiagram
     participant OWM as OpenWeatherMap API
     participant DB as PostgreSQL Database
 
-    Device->>Backend: Submit telemetry reading
-    Backend->>Backend: Load .env values and validate required settings
-    alt Configuration is valid
-        Backend->>OWM: HTTPS request for current weather at fixed coordinates
-        alt Weather response is valid
-            OWM-->>Backend: 200 OK + JSON payload
-            Backend->>Backend: Parse weather fields and combine with telemetry
-            Backend->>DB: Open connection and INSERT record
-            DB-->>Backend: Commit successful
-            Backend-->>Device: Processing accepted
-        else Timeout, network error, or invalid payload
-            OWM--xBackend: Timeout / request error / malformed data
-            Backend->>Backend: Mark weather fetch failure and log error
-            Backend-->>Device: Processing failed or degraded
-        end
-    else Missing API key or database URL
-        Backend->>Backend: Stop processing and print configuration error
-        Backend-->>Device: Startup/runtime error
+    Device->>Backend: HTTP POST /telemetry (JSON temp/humidity/pressure)
+    Backend->>Backend: Validate payload and timestamp
+    Backend->>OWM: HTTPS GET /data/2.5/weather?lat=43.2609&lon=-79.9192&appid=API_KEY&units=metric
+    alt Weather API responds in time
+        OWM-->>Backend: HTTP 200 JSON weather payload
+    else Timeout or error
+        OWM--xBackend: Timeout / 5xx / network error
+        Backend->>Backend: Circuit breaker fallback (degraded mode)
     end
+    Backend->>DB: TCP SQL INSERT telemetry + weather/fallback status
+    DB-->>Backend: INSERT OK
+    Backend-->>Device: HTTP 202 Accepted
 ```
-
-This sequence is consistent with the current code. In `src/api_test.py`, the process loads `OPENWEATHER_API_KEY`, sends a timed HTTPS request to OpenWeatherMap, checks the HTTP status, and parses the returned JSON before continuing. In `src/db_test.py`, the process loads `DATABASE_URL`, opens a PostgreSQL connection, performs SQL statements, commits successful writes, and rolls back when an exception happens. Together these two runtime paths show the core process behavior of EnviroSync: external service coordination, database persistence, and defensive handling of operational faults.
