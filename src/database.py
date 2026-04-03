@@ -74,7 +74,8 @@ class DatabaseClient:
     ) -> int:
         edge_timestamp = telemetry.timestamp
         received_at = utc_now()
-        raw_payload: dict[str, Any] = telemetry.model_dump()
+        # Use JSON mode so datetimes become ISO strings before storing in JSONB.
+        raw_payload: dict[str, Any] = telemetry.model_dump(mode="json", exclude_none=True)
 
         with self._connect() as connection, connection.cursor() as cursor:
             cursor.execute(
