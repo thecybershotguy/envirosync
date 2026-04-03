@@ -8,11 +8,11 @@
 ## Milestone Documents
 - [Milestone 1 - Proposal](docs/Milestone1-Proposal.md)
 - [Milestone 2 - Architecture](docs/Milestone2-Architecture.md)
-- [Milestone 3 - Architecture Viewpoints (4+1)](docs/Milestone3-Architecture.md)
+- [Milestone 3 - Architecture Viewpoints (4+1)](docs/Milestone3-Viewpoints.md)
 - [Milestone 4 - Final Implementation](docs/Milestone4-Implementation.md)
 
 ## Project Purpose
-EnviroSync is a backend IoT telemetry system that receives local readings from M5StickC Plus 2 + ENV III, enriches the readings with OpenWeatherMap data, applies alert rules, and stores unified records in PostgreSQL.
+EnviroSync is a backend IoT telemetry system that receives local readings from M5StickC Plus 2 + ENV IV, enriches the readings with OpenWeatherMap data, applies alert rules, and stores unified records in PostgreSQL.
 
 ## Design Patterns Implemented
 1. **Adapter Pattern** (`src/adapters/weather_adapter.py`): wraps OpenWeatherMap and returns a normalized `WeatherReading`.
@@ -23,7 +23,7 @@ EnviroSync is a backend IoT telemetry system that receives local readings from M
 - `src/main.py`: FastAPI application and endpoints.
 - `src/database.py`: PostgreSQL schema setup and data persistence.
 - `src/models.py`: shared request/response models and alert dataclasses.
-- `edge/m5stickc_envirosync.yaml`: ESPHome config for M5StickC Plus 2 + ENV III push.
+- `edge/m5stickc_envirosync.yaml`: ESPHome config for M5StickC Plus 2 + ENV IV push.
 
 ## Local Setup (Milestone 4 Runtime)
 
@@ -81,5 +81,6 @@ Note: `GET /` is not implemented, so `http://127.0.0.1:8000/` returns `{"detail"
 ## M5StickC Plus 2 (ESPHome)
 - Use `edge/m5stickc_envirosync.yaml`.
 - Replace Wi-Fi credentials and `http://<PYTHON_SERVER_IP>:8000/telemetry`.
-- Flash to M5StickC Plus 2 with ENV III connected via I2C.
+- Flash to M5StickC Plus 2 with ENV IV connected via I2C.
 - Device posts temperature, humidity, and pressure every 60 seconds.
+- Button A can also push telemetry immediately for a live demo.

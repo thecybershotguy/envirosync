@@ -1,11 +1,15 @@
+substitutions:
+  devicename: m5stickc-envirosync
+  upper_devicename: ENVIROSYNC
+
 esphome:
-  name: m5stickc-envirosync
-  friendly_name: EnviroSync M5StickC
+  name: ${devicename}
+  friendly_name: ${devicename}
 
 esp32:
   board: m5stick-c
   framework:
-    type: arduino
+    type: esp-idf
 
 logger:
 
@@ -29,40 +33,150 @@ http_request:
   timeout: 10s
 
 i2c:
-  sda: 32
-  scl: 33
-  scan: true
+  - id: bus_a
+    sda: GPIO21
+    scl: GPIO22
+    scan: true
+
+  - id: env_bus
+    sda: GPIO32
+    scl: GPIO33
+    scan: true
 
 sensor:
-  - platform: sht3xd
+  # Battery
+  - platform: adc
+    pin: GPIO38
+    attenuation: 12db
+    update_interval: 60s
+    name: "${upper_devicename} Battery Voltage"
+    filters:
+      - multiply: 2.0
+
+  # ENV IV temperature + humidity
+  - platform: sht4x
+    i2c_id: env_bus
+    address: 0x44
+    update_interval: 30s
     temperature:
       id: env_temperature
-      name: "ENV III Temperature"
+      name: "${upper_devicename} ENV Temperature"
     humidity:
       id: env_humidity
-      name: "ENV III Humidity"
-    address: 0x44
-    update_interval: 60s
+      name: "${upper_devicename} ENV Humidity"
 
-  - platform: qmp6988
+  # ENV pressure at 0x76
+  - platform: bmp280_i2c
+    i2c_id: env_bus
+    address: 0x76
+    update_interval: 30s
     pressure:
       id: env_pressure
-      name: "ENV III Pressure"
-    address: 0x70
-    update_interval: 60s
+      name: "${upper_devicename} ENV Pressure"
+
+binary_sensor:
+  - platform: gpio
+    pin:
+      number: GPIO37
+      inverted: false
+    name: "${upper_devicename} Button A"
+    on_press:
+      then:
+        - script.execute: push_telemetry
+
+script:
+  - id: push_telemetry
+    then:
+      - if:
+          condition:
+            lambda: |-
+              return !isnan(id(env_temperature).state) &&
+                     !isnan(id(env_humidity).state) &&
+                     !isnan(id(env_pressure).state);
+          then:
+            - logger.log: "Pushing telemetry to backend"
+            - http_request.post:
+                url: "http://<PYTHON_SERVER_IP>:8000/telemetry"
+                request_headers:
+                  Content-Type: application/json
+                body: !lambda |-
+                  char payload[256];
+                  snprintf(
+                    payload,
+                    sizeof(payload),
+                    "{\"temperature\":%.2f,\"humidity\":%.2f,\"pressure\":%.2f,\"device_id\":\"m5stickc-plus2\"}",
+                    id(env_temperature).state,
+                    id(env_humidity).state,
+                    id(env_pressure).state
+                  );
+                  return std::string(payload);
+          else:
+            - logger.log: "Skipping push because one or more sensor values are invalid"
 
 interval:
   - interval: 60s
     then:
-      - http_request.post:
-          url: "http://<PYTHON_SERVER_IP>:8000/telemetry"
-          headers:
-            Content-Type: application/json
-          json:
-            temperature: !lambda |-
-              return id(env_temperature).state;
-            humidity: !lambda |-
-              return id(env_humidity).state;
-            pressure: !lambda |-
-              return id(env_pressure).state;
-            device_id: "m5stickc-plus2"
+      - script.execute: push_telemetry
+
+output:
+  - platform: ledc
+    pin: 27
+    inverted: true
+    id: backlight
+
+light:
+  - platform: monochromatic
+    output: backlight
+    id: display_bl
+
+spi:
+  clk_pin: GPIO13
+  mosi_pin: GPIO15
+
+font:
+  - file: "gfonts://Roboto"
+    id: roboto
+    size: 18
+
+color:
+  - id: my_white
+    red: 100%
+    green: 100%
+    blue: 100%
+
+text_sensor:
+  - platform: wifi_info
+    ip_address:
+      id: wifi_ip
+      name: "${upper_devicename} WiFi IP"
+
+display:
+  - platform: st7789v
+    model: TTGO TDisplay 135x240
+    cs_pin: GPIO5
+    dc_pin: GPIO14
+    reset_pin: GPIO12
+    rotation: 270
+    lambda: |-
+      it.fill(Color::BLACK);
+      it.print(5, 8, id(roboto), id(my_white), "EnviroSync");
+
+      if (!isnan(id(env_temperature).state))
+        it.printf(5, 35, id(roboto), id(my_white), "T: %.1f C", id(env_temperature).state);
+      else
+        it.print(5, 35, id(roboto), id(my_white), "T: ERR");
+
+      if (!isnan(id(env_humidity).state))
+        it.printf(5, 60, id(roboto), id(my_white), "H: %.1f %%", id(env_humidity).state);
+      else
+        it.print(5, 60, id(roboto), id(my_white), "H: ERR");
+
+      if (!isnan(id(env_pressure).state))
+        it.printf(5, 85, id(roboto), id(my_white), "P: %.1f", id(env_pressure).state);
+      else
+        it.print(5, 85, id(roboto), id(my_white), "P: ERR");
+
+      if (id(wifi_ip).has_state())
+        it.print(5, 110, id(roboto), id(my_white), "WiFi: OK");
+      else
+        it.print(5, 110, id(roboto), id(my_white), "WiFi: NO");

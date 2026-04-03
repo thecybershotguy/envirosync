@@ -6,7 +6,7 @@
 
 # 1. Implementation Summary
 
-For Milestone 4, I implemented the full EnviroSync pipeline. The M5StickC Plus 2 with ENV III sends local telemetry to a Python FastAPI backend. The backend enriches each reading using OpenWeatherMap (McMaster coordinates), generates an alert, and stores a unified record in PostgreSQL.
+For Milestone 4, I implemented the full EnviroSync pipeline. The M5StickC Plus 2 with ENV IV sends local telemetry to a Python FastAPI backend. The backend enriches each reading using OpenWeatherMap (McMaster coordinates), generates an alert, and stores a unified record in PostgreSQL.
 
 # 2. Implemented Components
 
@@ -16,7 +16,7 @@ For Milestone 4, I implemented the full EnviroSync pipeline. The M5StickC Plus 2
 - `src/factories/alert_factory.py`: Factory Method implementation for alert object creation.
 - `src/database.py`: PostgreSQL schema setup and insert/query operations.
 - `src/models.py`: shared request/response models and domain models.
-- `edge/m5stickc_envirosync.yaml`: ESPHome configuration for M5StickC Plus 2 + ENV III.
+- `edge/m5stickc_envirosync.yaml`: ESPHome configuration for M5StickC Plus 2 + ENV IV.
 
 # 3. Runtime Endpoints
 
@@ -60,11 +60,13 @@ http://127.0.0.1:8000/docs
 
 # 6. Edge Device Push Configuration
 
-I added the ESPHome file `edge/m5stickc_envirosync.yaml` for M5StickC Plus 2 + ENV III. The device sends JSON every 60 seconds to:
+I added the ESPHome file `edge/m5stickc_envirosync.yaml` for M5StickC Plus 2 + ENV IV. The device sends JSON every 60 seconds to:
 
 ```text
 http://<PYTHON_SERVER_IP>:8000/telemetry
 ```
+
+For demonstration, Button A on the device can also trigger an immediate push without waiting for the 60 second interval.
 
 Payload format:
 
